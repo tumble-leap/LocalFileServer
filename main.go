@@ -13,27 +13,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func runService(dir string) {
-	localIpAddr := ""
-	port := 8000
-	addrs, err := net.InterfaceAddrs()
+func GetInternalIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return "", errors.New("internal IP fetch failed, detail:" + err.Error())
 	}
-	for _, address := range addrs {
-		// 检查ip地址判断是否回环地址
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				localIpAddr = ipnet.IP.String()
-			}
-		}
-	}
-	if localIpAddr == "" {
+	defer conn.Close()
+	res := conn.LocalAddr().String()
+	res = strings.Split(res, ":")[0]
+	return res, nil
+}
+
+func runService(dir string) {
+	localIpAddr, err := GetInternalIP()
+	if err != nil {
+		log.Println(err)
 		log.Println("并没有获取到本机的ip地址呢，请手动查询～")
 	} else {
 		log.Println("本机ip：" + localIpAddr)
 	}
+	port := 8000
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.StaticFS("/file", http.Dir(dir))
